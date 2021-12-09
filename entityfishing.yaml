@@ -1,0 +1,594 @@
+openapi: 3.0.0
+info:
+  title: Entity-fishing - Entity Recognition and Disambiguation
+  license:
+    name: Apache
+  version: 0.0.4
+servers:
+- url: /service
+security:
+- bearerAuth: []
+- basicAuth: []
+tags:
+- name: query-processing
+  description: The entity-fishing query processing service takes as input a JSON structured query and returns the JSON query enriched with a list of identified and, when possible, disambiguated entities.
+- name: knowledge-base
+  description: Knowledge base concept retrieval
+- name: term-lookup
+  description: Term Lookup
+- name: language-identification
+  description: Language identification
+paths:
+  /disambiguate:
+    post:
+      tags:
+      - query-processing
+      operationId: disambiguate
+      requestBody:
+        description: (to be documented)
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DisambiguateForm'
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/QueryResultText'
+                - $ref: '#/components/schemas/QueryResultTermVector'
+                - $ref: '#/components/schemas/QueryResultFile'
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /kb/concept/{id}:
+    get:
+      tags:
+      - knowledge-base
+      operationId: getConcept
+      parameters:
+      - name: id
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Concept'
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /kb/term/{term}:
+    get:
+      tags:
+      - knowledge-base
+      operationId: termLookup
+      parameters:
+      - name: term
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: lang
+        in: query
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+          default: "en"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermSenses'
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    Error:
+      required:
+      - message
+      properties:
+        message:
+          type: string
+    DisambiguateForm:
+      required:
+      - query
+      type: object
+      properties:
+        file:
+          type: string
+          description: ' binary file to be converted and annotated'
+          format: binary
+        query:
+          $ref: '#/components/schemas/QueryParameters'
+      additionalProperties: false
+    QueryParameters:
+      type: object
+      properties:
+        text:
+          type: string
+        shortText:
+          type: string
+        termVector:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeightedTerm'
+        language:
+          $ref: '#/components/schemas/Language'
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        sentences:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sentence'
+        mentions:
+          type: array
+          items:
+            type: string
+        nbest:
+          type: boolean
+        sentence:
+          type: boolean
+        customisation:
+          type: string
+        processSentence:
+          type: array
+          items:
+            type: integer
+            format: int32
+        structure:
+          type: string
+        minSelectorScore:
+          type: number
+          format: float                    
+      additionalProperties: false
+    QueryResultText:
+      required:
+      - text
+      type: object
+      properties:
+        software:
+          type: string
+        version:
+          type: string          
+        date:
+          type: string
+        runtime:
+          type: integer
+          format: int32
+        nbest:
+          type: boolean
+        text:
+          type: string
+        language:
+          $ref: '#/components/schemas/Language'
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        global_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        termVector:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeightedTerm'
+        multilingual:
+          type: array
+          items:
+            $ref: '#/components/schemas/MultilingualTerm'
+      additionalProperties: false
+    QueryResultTermVector:
+      required:
+      - termVector
+      type: object
+      properties:
+        software:
+          type: string
+        version:
+          type: string          
+        date:
+          type: string
+        runtime:
+          type: integer
+          format: int32
+        nbest:
+          type: boolean
+        language:
+          $ref: '#/components/schemas/Language'
+        termVector:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeightedTermEntities'
+        multilingual:
+          type: array
+          items:
+            $ref: '#/components/schemas/MultilingualTerm'            
+      additionalProperties: false
+    QueryResultFile:
+      required:
+      - pages
+      type: object
+      properties:
+        software:
+          type: string
+        version:
+          type: string          
+        date:
+          type: string
+        runtime:
+          type: integer
+          format: int32
+        nbest:
+          type: boolean
+        file:
+          type: string
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Page'
+        language:
+          $ref: '#/components/schemas/Language'
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        global_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        multilingual:
+          type: array
+          items:
+            $ref: '#/components/schemas/MultilingualTerm'
+      additionalProperties: false
+    Page:
+      required:
+      - page_height
+      - page_width
+      type: object
+      properties:
+        page_height:
+          type: number
+          format: float
+        page_width:
+          type: number
+          format: float
+    WeightedTerm:
+      required:
+      - term
+      - score
+      type: object
+      properties:
+        term:
+          type: string
+        score:
+          type: number
+          format: float
+      additionalProperties: false
+    WeightedTermEntities:
+      required:
+      - term
+      - score
+      type: object
+      properties:
+        term:
+          type: string
+        score:
+          type: number
+          format: float
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Concept'          
+      additionalProperties: false
+    Language:
+      required:
+      - lang
+      type: object
+      properties:
+        lang:
+          type: string
+        conf:
+          type: number
+          format: float
+      additionalProperties: false
+    Sentence:
+      required:
+      - offsetStart
+      - offsetEnd
+      type: object
+      properties:
+        offsetStart:
+          type: integer
+          format: int32
+        offsetEnd:
+          type: integer
+          format: int32
+      additionalProperties: false
+    Entity:
+      required:
+      - offsetStart
+      - offsetEnd
+      type: object
+      properties:
+        offsetStart:
+          type: integer
+          format: int32
+        offsetEnd:
+          type: integer
+          format: int32
+        pos:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoundingBox'             
+        rawName:
+          type: string
+        confidence_score:
+          type: number
+          format: float
+        wikipediaExternalRef:
+          type: integer
+          format: int32
+        wikidataId:
+          type: string
+        domains:
+          type: array
+          items:
+            type: string
+        type:
+          type: string
+        sense:
+          type: string
+      additionalProperties: false
+    Concept:
+      type: object
+      properties:
+        rawName:
+          type: string
+        preferredTerm:
+          type: string
+        confidence_score:
+          type: number
+          format: float
+        wikipediaExternalRef:
+          type: integer
+          format: int32
+        wikidataId:
+          type: string
+        definitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Definition'   
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'   
+        domains:
+          type: array
+          items:
+            type: string
+        multilingual:
+          type: array
+          items:
+            $ref: '#/components/schemas/MultilingualTerm'
+        statements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Statement'
+        type:
+          type: string
+        sense:
+          type: string
+      additionalProperties: false
+    Statement:
+      required:
+      - conceptId
+      type: object
+      properties:
+        conceptId:
+          type: string
+        propertyId:
+          type: string
+        propertyName:
+          type: string
+        valueType:
+          type: string
+        value:
+            oneOf:
+            - type: string
+            - $ref: '#/components/schemas/MonolingualText'
+            - $ref: '#/components/schemas/Quantity'
+            - $ref: '#/components/schemas/Time'
+        valueName:
+          type: string
+      additionalProperties: false
+    BoundingBox:
+      type: object
+      properties:
+        p:
+          type: integer
+          format: int32
+        x:
+          type: number
+          format: float
+        y:
+          type: number
+          format: float
+        w:
+          type: number
+          format: float
+        h:
+          type: number
+          format: float
+      additionalProperties: false
+    Category:
+      required:
+      - category
+      type: object
+      properties:
+        category:
+          type: string
+        source:
+          type: string
+        weight:
+          type: number
+          format: float
+        page_id:
+          type: integer
+          format: int32
+      additionalProperties: false
+    MultilingualTerm:
+      required:
+      - term
+      type: object
+      properties:
+        term:
+          type: string
+        lang:
+          type: string
+        page_id:
+          type: integer
+          format: int32
+      additionalProperties: false
+    TermSenses:
+      required:
+      - term
+      type: object
+      properties:
+        term:
+          type: string
+        lang:
+          type: string
+        senses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sense'
+      additionalProperties: false
+    Sense:
+      type: object
+      properties:
+        pageid:
+          type: string
+        preferred:
+          type: string
+        prob_c:
+          type: number
+          format: float
+      additionalProperties: false
+    MonolingualText:
+      required:
+      - text
+      type: object
+      properties:
+        text:
+          type: string
+        language:
+          type: string
+      additionalProperties: false
+    Quantity:
+      required:
+      - amount
+      type: object
+      properties:
+        amount:
+          type: string
+        unit:
+          type: string
+      additionalProperties: false
+    Time:
+      required:
+      - time
+      type: object
+      properties:
+        time:
+          type: string
+        calendarmodel:
+          type: string
+        timezone:
+          type: integer
+          format: int32
+        before:
+          type: integer
+          format: int32
+        after:
+          type: integer
+          format: int32                    
+        precision:
+          type: integer
+          format: int32   
+      additionalProperties: false
+    Definition:
+      required:
+      - definition
+      type: object
+      properties:
+        definition:
+          type: string
+        source:
+          type: string
+        lang:
+          type: string
+      additionalProperties: false
+    UploadedFile:
+      required:
+      - filename
+      - id
+      type: object
+      properties:
+        filename:
+          type: string
+        id:
+          type: string
+        contentType:
+          type: string
+      additionalProperties: false
+    UploadedFileArray:
+      type: array
+      items:
+        $ref: '#/components/schemas/UploadedFile'
